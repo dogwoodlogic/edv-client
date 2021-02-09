@@ -1189,7 +1189,17 @@ export class EdvClient {
       });
       // send request
       const {httpsAgent: agent} = this;
-      await httpClient.post(url, {headers, json: chunk, agent});
+      await httpClient.post(url, {
+        headers,
+        json: chunk,
+        agent,
+        retry: {
+          limit: 10,
+          methods: ['post'],
+          statusCodes: [408]
+        },
+        timeout: 15000
+      });
     } catch(e) {
       const {response = {}} = e;
       if(response.status === 409) {
@@ -1218,7 +1228,16 @@ export class EdvClient {
       });
       // send request
       const {httpsAgent: agent} = this;
-      response = await httpClient.get(url, {headers, agent});
+      response = await httpClient.get(url, {
+        headers,
+        agent,
+        retry: {
+          limit: 10,
+          methods: ['get'],
+          statusCodes: [408]
+        },
+        timeout: 15000
+      });
     } catch(e) {
       response = e.response || {};
       if(response.status === 404) {
