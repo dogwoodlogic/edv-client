@@ -109,13 +109,16 @@ export class EdvClient {
    *   capability to use to authorize the invocation of this operation.
    * @param {object} options.invocationSigner - An API with an
    *   `id` property and a `sign` function for signing a capability invocation.
+   * @param {Function} [options.onProgress = undefined] - A function that will
+   *   be called on each iteration of a chunk upload. Exposes the current and
+   *   total chunks.
    *
    * @returns {Promise<object>} - Resolves to the inserted document.
    */
   async insert({
     doc, stream, chunkSize, recipients = [], keyResolver = this.keyResolver,
     keyAgreementKey = this.keyAgreementKey, hmac = this.hmac,
-    capability, invocationSigner
+    capability, invocationSigner, onProgress = () => {}
   }) {
     _assertDocument(doc);
     _assertInvocationSigner(invocationSigner);
@@ -183,7 +186,8 @@ export class EdvClient {
         result = await this._updateStream({
           doc: encrypted, stream, chunkSize,
           recipients: recipients.slice(), keyResolver,
-          keyAgreementKey, capability: streamCapability, invocationSigner
+          keyAgreementKey, capability: streamCapability,
+          invocationSigner, onProgress
         });
       }
       return result;
@@ -447,12 +451,16 @@ export class EdvClient {
    *   capability to use to authorize the invocation of this operation.
    * @param {object} options.invocationSigner - An API with an
    *   `id` property and a `sign` function for signing a capability invocation.
+   * @param {Function} [options.onProgress = undefined] - A function that will
+   *   be called on each iteration of a chunk upload. Exposes the current and
+   *   total chunks.
    *
    * @returns {Promise<ReadableStream>} - Resolves to a `ReadableStream` to read
    *   the chunked data from.
    */
   async getStream({
-    doc, keyAgreementKey = this.keyAgreementKey, capability, invocationSigner
+    doc, keyAgreementKey = this.keyAgreementKey,
+    capability, invocationSigner, onProgress = () => {}
   }) {
     _assertObject(doc, '"doc" must be an object.');
     _assertString(doc.id, '"doc.id" must be a string.');
@@ -475,6 +483,7 @@ export class EdvClient {
         // get next chunk and enqueue it for reading
         const chunk = await self._getChunk(
           {doc, chunkIndex, capability, invocationSigner});
+        onProgress({current: chunkIndex + 1, total: state.chunks});
         chunkIndex++;
         controller.enqueue(chunk);
       }
@@ -1114,7 +1123,7 @@ export class EdvClient {
   async _updateStream({
     doc, stream, chunkSize = DEFAULT_CHUNK_SIZE,
     recipients, keyResolver, keyAgreementKey, hmac,
-    capability, invocationSigner
+    capability, invocationSigner, onProgress
   }) {
     const {cipher} = this;
     const encryptStream = await cipher.createEncryptStream(
@@ -1146,6 +1155,8 @@ export class EdvClient {
         sequence: doc.sequence,
         ...value,
       };
+
+      onProgress({current: chunks});
 
       // TODO: in theory could do encryption and sending in parallel, they
       // are safely independent operations, consider this optimization

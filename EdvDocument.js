@@ -67,14 +67,17 @@ export class EdvDocument {
    * @param {object} options - The options to use.
    * @param {object} options.doc - The decrypted document to get a stream for;
    *   call `read()` to get this.
+   * @param {Function} [options.onProgress = undefined] - A function that will
+   *   be called on each iteration of a chunk upload. Exposes the current and
+   *   total chunks.
    *
    * @returns {Promise<ReadableStream>} - Resolves to a `ReadableStream` to read
    *   the chunked data from.
    */
-  async getStream({doc}) {
+  async getStream({doc, onProgress = () => {}}) {
     const {keyAgreementKey, capability, invocationSigner, client} = this;
     return client.getStream({
-      doc, keyAgreementKey, capability, invocationSigner
+      doc, keyAgreementKey, capability, invocationSigner, onProgress
     });
   }
 
