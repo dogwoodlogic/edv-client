@@ -228,13 +228,16 @@ export class EdvClient {
    *   capability to use to authorize the invocation of this operation.
    * @param {object} options.invocationSigner - An API with an
    *   `id` property and a `sign` function for signing a capability invocation.
+   * @param {Function} [options.onProgress = undefined] - A function that will
+   *   be called on each iteration of a chunk upload. Exposes the current and
+   *   total chunks.
    *
    * @returns {Promise<object>} - Resolves to the updated document.
    */
   async update({
     doc, stream, chunkSize, recipients = [], keyResolver = this.keyResolver,
     keyAgreementKey = this.keyAgreementKey,
-    hmac = this.hmac, capability, invocationSigner
+    hmac = this.hmac, capability, invocationSigner, onProgress = () => {}
   }) {
     _assertDocument(doc);
     _assertString(doc.id, '"doc.id" must be a string.');
@@ -289,7 +292,7 @@ export class EdvClient {
       result = await this._updateStream({
         doc: encrypted, stream, chunkSize,
         recipients: recipients.slice(), keyResolver,
-        keyAgreementKey, hmac, capability, invocationSigner
+        keyAgreementKey, hmac, capability, invocationSigner, onProgress
       });
     }
 
