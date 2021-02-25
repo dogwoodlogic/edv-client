@@ -10,6 +10,7 @@ import {ReadableStream, getRandomBytes} from './util.js';
 
 // 1 MiB = 1048576
 const DEFAULT_CHUNK_SIZE = 1048576;
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 export class EdvClient {
   /**
@@ -1181,7 +1182,7 @@ export class EdvClient {
     });
   }
 
-  async _storeChunk({doc, chunk, capability, invocationSigner}) {
+  async _storeChunk({doc, chunk, capability, invocationSigner, retry = 0}) {
     let url = this._getDocUrl(doc.id, capability);
     if(!capability) {
       capability = this._getRootDocCapability(doc.id);
@@ -1205,7 +1206,7 @@ export class EdvClient {
         retry: {
           limit: 10,
           methods: ['post'],
-          statusCodes: [408]
+          statusCodes: [408, 504]
         },
         timeout: 15000
       });
@@ -1216,11 +1217,20 @@ export class EdvClient {
         err.name = 'InvalidStateError';
         throw err;
       }
+      const name = e.name || '';
+      if(name === 'TimeoutError') {
+        // retry
+        await delay(_calculateBackoff(retry));
+        ++retry;
+        return this._storeChunk({
+          doc, chunk, capability, invocationSigner, retry
+        });
+      }
       throw e;
     }
   }
 
-  async _getChunk({doc, chunkIndex, capability, invocationSigner}) {
+  async _getChunk({doc, chunkIndex, capability, invocationSigner, retry = 0}) {
     let url = this._getDocUrl(doc.id, capability);
     if(!capability) {
       capability = this._getRootDocCapability(doc.id);
@@ -1243,7 +1253,7 @@ export class EdvClient {
         retry: {
           limit: 10,
           methods: ['get'],
-          statusCodes: [408]
+          statusCodes: [408, 504]
         },
         timeout: 15000
       });
@@ -1253,6 +1263,15 @@ export class EdvClient {
         const err = new Error('Document chunk not found.');
         err.name = 'NotFoundError';
         throw err;
+      }
+      const name = e.name || '';
+      if(name === 'TimeoutError') {
+        // retry
+        await delay(_calculateBackoff(retry));
+        ++retry;
+        return this._getChunk({
+          doc, chunkIndex, capability, invocationSigner, retry
+        });
       }
       throw e;
     }
@@ -1374,4 +1393,18 @@ function _createAbsoluteUrl(url) {
     return `${self.location.origin}${url}`;
   }
   throw new Error('"url" must be an absolute URL.');
+}
+
+// 0 5 5 10 10 30 60
+function _calculateBackoff(retries) {
+  if(retries === 0) {
+    return 0;
+  }
+  if(retries > 0 && retries <= 2) {
+    return 5000;
+  }
+  if(retries > 2 && retries <= 4) {
+    return 5000;
+  }
+  return retries === 5 ? 30000 : 60000;
 }
