@@ -1209,7 +1209,7 @@ export class EdvClient {
         json: chunk,
         agent,
         retry: {
-          limit: 10,
+          limit: 13,
           methods: ['post'],
           statusCodes: [408, 504]
         },
@@ -1256,7 +1256,7 @@ export class EdvClient {
         headers,
         agent,
         retry: {
-          limit: 10,
+          limit: 13,
           methods: ['get'],
           statusCodes: [408, 504]
         },
