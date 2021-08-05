@@ -94,17 +94,21 @@ export class EdvDocument {
    *   for the encrypted content.
    * @param {Function} options.keyResolver - A function that returns a Promise
    *   that resolves a key ID to a DH public key.
+   * @param {Function} [options.onProgress = undefined] - A function that will
+   *   be called on each iteration of a chunk upload. Exposes the current and
+   *   total chunks.
    *
    * @returns {Promise<object>} - Resolves to the inserted document.
    */
   async write({
     doc, stream, chunkSize,
-    recipients = this.recipients, keyResolver = this.keyResolver
+    recipients = this.recipients, keyResolver = this.keyResolver,
+    onProgress = () => {}
   }) {
     const {keyAgreementKey, hmac, capability, invocationSigner, client} = this;
     return client.update({
       doc, stream, chunkSize, recipients, keyResolver,
-      keyAgreementKey, hmac, capability, invocationSigner
+      keyAgreementKey, hmac, capability, invocationSigner, onProgress
     });
   }
 
